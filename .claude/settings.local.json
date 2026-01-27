@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"D:\\flutter-app-Louvre\\lib\")",
+      "Bash(curl:*)",
+      "Bash(flutter clean:*)",
+      "Bash(dir:*)",
+      "Bash(keytool:*)",
+      "Bash(del \"C:\\wamp64\\www\\condominio-limpo\\writable\\cache\\openai\\688062690a185a24c23341454099cdb2.json\")",
+      "Bash(findstr:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(cmd /c \"cd /d D:\\\\flutter-app-Louvre && flutter pub get\")",
+      "Bash(cmd /c \"cd /d D:\\\\flutter-app-Louvre && flutter --version\")",
+      "Bash(powershell -Command \"cd ''D:\\\\flutter-app-Louvre''; flutter --version\")",
+      "Bash(powershell -Command \"cd ''D:\\\\flutter-app-Louvre''; D:\\\\downloads11-11-2025\\\\flutter_windows_3.38.3-stable\\\\flutter\\\\bin\\\\flutter.bat pub get\")",
+      "Bash(powershell -Command \"cd ''D:\\\\flutter-app-Louvre''; D:\\\\downloads11-11-2025\\\\flutter_windows_3.38.3-stable\\\\flutter\\\\bin\\\\flutter.bat build apk --release\")",
+      "Bash(gh auth:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
