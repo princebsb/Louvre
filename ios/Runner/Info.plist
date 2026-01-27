@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use seu rosto ou impressão digital para login seguro no Condomínio Louvre</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Precisamos enviar notificações sobre comunicados, cobranças e reservas do condomínio</string>
 </dict>
 </plist>
