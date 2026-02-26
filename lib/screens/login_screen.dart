@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/biometric_service.dart';
+import '../services/badge_service.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -53,11 +55,22 @@ class _LoginScreenState extends State<LoginScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
 
+      // Verificar se é um usuário diferente do anterior
+      final prefs = await SharedPreferences.getInstance();
+      final lastUserEmail = prefs.getString('last_user_email');
+
       final result = await _apiService.login(email, password);
 
       if (!mounted) return;
 
       if (result['success']) {
+        // Se o usuário for diferente do anterior, limpar dados de badges
+        if (lastUserEmail != null && lastUserEmail != email) {
+          await BadgeService().clearAllBadgeData();
+        }
+        // Salvar o email do usuário atual
+        await prefs.setString('last_user_email', email);
+
         // Verificar biometria no momento do login (mais confiável)
         final biometricAvailable = await _biometricService.isBiometricAvailable();
         final biometricEnabled = await _biometricService.isBiometricEnabled();
@@ -102,14 +115,27 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      final email = credentials['email']!;
+
+      // Verificar se é um usuário diferente do anterior
+      final prefs = await SharedPreferences.getInstance();
+      final lastUserEmail = prefs.getString('last_user_email');
+
       final result = await _apiService.login(
-        credentials['email']!,
+        email,
         credentials['password']!,
       );
 
       if (!mounted) return;
 
       if (result['success']) {
+        // Se o usuário for diferente do anterior, limpar dados de badges
+        if (lastUserEmail != null && lastUserEmail != email) {
+          await BadgeService().clearAllBadgeData();
+        }
+        // Salvar o email do usuário atual
+        await prefs.setString('last_user_email', email);
+
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );

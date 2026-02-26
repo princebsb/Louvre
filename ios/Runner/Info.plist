@@ -45,5 +45,14 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Permissões para Face ID / Touch ID -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Utilizamos Face ID para autenticação segura no aplicativo.</string>
+	<!-- Permissões para Notificações -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

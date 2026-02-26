@@ -297,7 +297,23 @@ class BadgeService extends ChangeNotifier {
   }
 
   // Resetar todos os badges (para logout)
+  // Apenas zera os contadores em memória, mantém os IDs salvos no SharedPreferences
+  // para que ao fazer login novamente, os itens já vistos não apareçam como novos
   Future<void> resetAllBadges() async {
+    _newComunicados = 0;
+    _newDocumentos = 0;
+    _newCobrancas = 0;
+    _newReservas = 0;
+    _newSolicitacoes = 0;
+    _newOcorrencias = 0;
+    _newObras = 0;
+    _newLaudos = 0;
+
+    notifyListeners();
+  }
+
+  // Limpar completamente todos os dados de badges (para troca de usuário)
+  Future<void> clearAllBadgeData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyLastSeenComunicados);
     await prefs.remove(_keyLastSeenDocumentos);
