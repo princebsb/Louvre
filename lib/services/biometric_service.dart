@@ -5,11 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class BiometricService {
   final LocalAuthentication _localAuth = LocalAuthentication();
 
-  // Configuração do secure storage com opções para Android
+  // Configuração do secure storage com opções para Android e iOS
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
       resetOnError: true, // Reseta se houver erro de criptografia
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
   );
 

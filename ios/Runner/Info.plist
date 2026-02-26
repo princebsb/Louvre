@@ -45,10 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<!-- Permissões para Face ID / Touch ID -->
 	<key>NSFaceIDUsageDescription</key>
-	<string>Utilizamos Face ID para autenticação segura no aplicativo.</string>
-	<!-- Permissões para Notificações -->
+	<string>Use seu rosto ou impressão digital para login seguro no Condomínio Louvre</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Precisamos enviar notificações sobre comunicados, cobranças e reservas do condomínio</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
