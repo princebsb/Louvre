@@ -1,5 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/api_service.dart';
 import '../services/badge_service.dart';
 
@@ -398,6 +403,116 @@ class _DetalhesObraState extends State<_DetalhesObra> {
     }
   }
 
+  /// Um anexo da obra pode ser imagem ou PDF (relatório fotográfico entregue
+  /// pela construtora). A API manda `tipo`; a extensão da URL é a garantia de
+  /// funcionar mesmo contra uma versão antiga da API, que só devolvia a URL.
+  bool _ePdf(Map<String, dynamic> anexo) {
+    if ((anexo['tipo'] ?? '').toString().toLowerCase() == 'pdf') return true;
+    final url = (anexo['url'] ?? '').toString().toLowerCase();
+    return url.split('?').first.endsWith('.pdf');
+  }
+
+  /// Nome que aparece no cartão: o do arquivo enviado, quando o PDF não tem
+  /// descrição própria.
+  String _legendaAnexo(Map<String, dynamic> anexo) {
+    final descricao = (anexo['descricao'] ?? '').toString().trim();
+    if (descricao.isNotEmpty) return descricao;
+
+    final nome = (anexo['nome_original'] ?? '').toString().trim();
+    if (nome.isNotEmpty) return nome;
+
+    return _ePdf(anexo) ? 'Documento PDF' : 'Sem descrição';
+  }
+
+  /// Peso do arquivo, para o morador saber o que vai baixar antes de abrir.
+  String? _formatarTamanho(dynamic bytes) {
+    final valor = bytes is num ? bytes.toDouble() : double.tryParse('$bytes');
+    if (valor == null || valor <= 0) return null;
+
+    if (valor < 1024 * 1024) {
+      return '${NumberFormat('#,##0', 'pt_BR').format(valor / 1024)} KB';
+    }
+    return '${NumberFormat('#,##0.0', 'pt_BR').format(valor / 1048576)} MB';
+  }
+
+  void _abrirAnexo(BuildContext context, Map<String, dynamic> anexo) {
+    if (_ePdf(anexo)) {
+      _abrirPdf(context, anexo);
+      return;
+    }
+    _abrirFoto(context, anexo);
+  }
+
+  /// PDF não abre em `Image.network`: baixa para o diretório temporário e
+  /// entrega ao leitor de PDF do aparelho, como nas demais telas do app.
+  Future<void> _abrirPdf(BuildContext context, Map<String, dynamic> anexo) async {
+    final url = (anexo['url'] ?? '').toString();
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('URL do documento não disponível')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final fullUrl = url.startsWith('http') ? url : 'https://sqs103.com.br$url';
+
+      final token = await widget.apiService.getToken();
+      final response = await http.get(
+        Uri.parse(fullUrl),
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('código ${response.statusCode}');
+      }
+
+      final dir = await getTemporaryDirectory();
+
+      String filename = (anexo['nome_original'] ?? '').toString().trim();
+      if (filename.isEmpty) filename = fullUrl.split('/').last.split('?').first;
+      if (filename.isEmpty) {
+        filename = 'obra_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      }
+      if (!filename.toLowerCase().endsWith('.pdf')) filename = '$filename.pdf';
+      // Nome do arquivo enviado pode ter caracteres que o sistema de arquivos
+      // recusa; só o que é seguro em qualquer plataforma sobrevive.
+      filename = filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(response.bodyBytes);
+
+      if (context.mounted) Navigator.pop(context);
+
+      final result = await OpenFilex.open(
+        file.path,
+        type: 'application/pdf',
+        uti: 'com.adobe.pdf',
+      );
+
+      if (result.type != ResultType.done && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao abrir arquivo: ${result.message}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao baixar documento: $e')),
+        );
+      }
+    }
+  }
+
   void _abrirFoto(BuildContext context, Map<String, dynamic> foto) {
     showDialog(
       context: context,
@@ -783,11 +898,11 @@ class _DetalhesObraState extends State<_DetalhesObra> {
                           const SizedBox(height: 4),
                         ],
 
-                        // Fotos da Obra
+                        // Fotos e PDFs da Obra
                         if (_obraDetalhes?['fotos'] != null &&
                             (_obraDetalhes!['fotos'] as List).isNotEmpty) ...[
                           const Text(
-                            'Fotos da Obra',
+                            'Fotos e Documentos da Obra',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -800,9 +915,11 @@ class _DetalhesObraState extends State<_DetalhesObra> {
                               scrollDirection: Axis.horizontal,
                               itemCount: (_obraDetalhes!['fotos'] as List).length,
                               itemBuilder: (context, index) {
-                                final foto = (_obraDetalhes!['fotos'] as List)[index];
+                                final foto = (_obraDetalhes!['fotos'] as List)[index] as Map<String, dynamic>;
+                                final ePdf = _ePdf(foto);
+                                final tamanho = _formatarTamanho(foto['tamanho']);
                                 return GestureDetector(
-                                  onTap: () => _abrirFoto(context, foto),
+                                  onTap: () => _abrirAnexo(context, foto),
                                   child: Container(
                                     width: 160,
                                     margin: EdgeInsets.only(right: index < (_obraDetalhes!['fotos'] as List).length - 1 ? 12 : 0),
@@ -815,34 +932,74 @@ class _DetalhesObraState extends State<_DetalhesObra> {
                                       children: [
                                         ClipRRect(
                                           borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-                                          child: Image.network(
-                                            foto['url'] ?? '',
-                                            height: 120,
-                                            width: 160,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => Container(
-                                              height: 120,
-                                              width: 160,
-                                              color: Colors.grey[200],
-                                              child: const Icon(Icons.broken_image, color: Colors.grey, size: 40),
-                                            ),
-                                            loadingBuilder: (context, child, loadingProgress) {
-                                              if (loadingProgress == null) return child;
-                                              return Container(
-                                                height: 120,
-                                                width: 160,
-                                                color: Colors.grey[100],
-                                                child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                              );
-                                            },
-                                          ),
+                                          // PDF não tem miniatura: cartão que abre o arquivo.
+                                          child: ePdf
+                                              ? Container(
+                                                  height: 120,
+                                                  width: 160,
+                                                  color: const Color(0xFFFEF2F2),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.picture_as_pdf,
+                                                        color: Color(0xFFB91C1C),
+                                                        size: 40,
+                                                      ),
+                                                      const SizedBox(height: 6),
+                                                      const Text(
+                                                        'Abrir PDF',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: Color(0xFFB91C1C),
+                                                        ),
+                                                      ),
+                                                      if (tamanho != null) ...[
+                                                        const SizedBox(height: 2),
+                                                        Text(
+                                                          tamanho,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: Colors.grey[600],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                )
+                                              : Image.network(
+                                                  foto['url'] ?? '',
+                                                  height: 120,
+                                                  width: 160,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                                    height: 120,
+                                                    width: 160,
+                                                    color: Colors.grey[200],
+                                                    child: const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                                                  ),
+                                                  loadingBuilder: (context, child, loadingProgress) {
+                                                    if (loadingProgress == null) return child;
+                                                    return Container(
+                                                      height: 120,
+                                                      width: 160,
+                                                      color: Colors.grey[100],
+                                                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                                    );
+                                                  },
+                                                ),
                                         ),
                                         Expanded(
                                           child: Padding(
                                             padding: const EdgeInsets.all(8),
                                             child: Text(
-                                              foto['descricao'] ?? 'Sem descrição',
-                                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                              _legendaAnexo(foto),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey[600],
+                                                fontWeight: ePdf ? FontWeight.w600 : FontWeight.normal,
+                                              ),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                             ),
